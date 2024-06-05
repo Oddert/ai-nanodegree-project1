@@ -20,15 +20,16 @@ from transformers import (
 model_name = 'bert-base-cased'
 # model_name = 'distilbert-base-uncased'
 
+dataset_name = 'ukr-detect/ukr-formality-dataset-translated-gyafc'
 # dataset_name = 'dair-ai/emotion'
 # dataset_name = 'roman_urdu_hate_speech'
 # dataset_name = 'ctoraman/gender-hate-speech'
-dataset_name = 'imdb'
+# dataset_name = 'imdb'
 
 tokeniser_key = 'text'
 train_key = 'train'
 test_key = 'test'
-select_size = 250
+select_size = 1000
 mode_save_name = 'bert-lora'
 dir_save_name = './data/project1/initial'
 
@@ -49,6 +50,7 @@ sampled_ds = {}
 
 for label in [train_key, test_key]:
       sampled_ds[label] = tokenised_ds[label].shuffle(seed=202405241534).select(range(select_size))
+      sampled_ds[label] = sampled_ds[label].rename_column('labels', 'label')
 
 # train_ds = train_ds.rename_column('Text', 'text')
 # train_ds = train_ds.rename_column('Label', 'label')
