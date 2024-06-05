@@ -1,3 +1,12 @@
+'''
+Credits
+--------
+
+"Fine-Tuning BERT for text classification with LoRA" by Karkar Nizar - Used to verify and compare PEFT configuration when previous datasets were causing issues (Available at: https://medium.com/@karkar.nizar/fine-tuning-bert-for-text-classification-with-lora-f12af7fa95e4)
+compute_metrics() - taken from an earlier instructional lesson
+Dataset "Ukrainian Formality Dataset (translated)" available at: https://huggingface.co/datasets/ukr-detect/ukr-formality-dataset-translated-gyafc
+
+'''
 import numpy as np
 
 from datasets import load_dataset
@@ -16,7 +25,6 @@ from transformers import (
 	TrainingArguments,
 )
 
-# TODO: Would have preferred to use a more creative dataset but ran into too many problems to keep up with the course. 
 model_name = 'bert-base-cased'
 # model_name = 'distilbert-base-uncased'
 
@@ -29,9 +37,10 @@ dataset_name = 'ukr-detect/ukr-formality-dataset-translated-gyafc'
 tokeniser_key = 'text'
 train_key = 'train'
 test_key = 'test'
+initial_save_name = './data/initial'
+final_save_name = './data/final'
 select_size = 1000
-mode_save_name = 'bert-lora'
-dir_save_name = './data/project1/initial'
+num_train_epochs = 10
 
 dataset = load_dataset(dataset_name)
 
@@ -59,10 +68,10 @@ for label in [train_key, test_key]:
 # test_ds = test_ds.rename_column('Label', 'label')
 
 lora_config = LoraConfig(
-	task_type=TaskType.SEQ_CLS,
-	r=1,
 	lora_alpha=1,
 	lora_dropout=0.1,
+	r=1,
+	task_type=TaskType.SEQ_CLS,
 )
 
 ### Loading and Evaluating a Foundation Model
@@ -71,26 +80,37 @@ lora_config = LoraConfig(
 base_model = BertForSequenceClassification.from_pretrained(
 	model_name,
 	num_labels=2,
+	id2label={
+		0: 'INFORMAL',
+		1: 'FORMAL',
+	},
+	label2id={
+		'INFORMAL': 0,
+		'FORMAL': 1,
+	}
 )
-print(base_model)
+logger.debug(base_model)
 logger.info('base model instantiated')
 # base_model = DistilBertForSequenceClassification.from_pretrained(
 # 	model_name,
 # 	num_labels=2,
 # )
 
-# TODO: Copied from earlier lesson, potentially upgrade
+# TODO: Copied from earlier lesson, potentially upgrade to something original
 def compute_metrics(eval_pred):
     predictions, labels = eval_pred
     predictions = np.argmax(predictions, axis=1)
     return {'accuracy': (predictions == labels).mean()}
 
 training_args = TrainingArguments(
-	output_dir='./data/project1/initial',
 	evaluation_strategy='epoch',
-	num_train_epochs=1,
+	load_best_model_at_end=True,
+	num_train_epochs=num_train_epochs,
+	output_dir='./data/project1/initial',
+	save_strategy='epoch',
 )
 
+# NOTE: I was unsure if the intent was to instantiate a PEFT version of the base model and evaluate that, but instead instantiated a Trainer in order to evaluate the base without training.
 trainer = Trainer(
 	args=training_args,
 	compute_metrics=compute_metrics,
@@ -120,9 +140,11 @@ model.print_trainable_parameters()
 logger.info('lora model instantiated')
 
 peft_training_args = TrainingArguments(
-	output_dir=dir_save_name,
 	evaluation_strategy='epoch',
+	load_best_model_at_end=True,
 	num_train_epochs=10,
+	output_dir=initial_save_name,
+	save_strategy='epoch',
 )
 
 peft_trainer = Trainer(
@@ -142,14 +164,14 @@ logger.info('peft trainer training complete')
 ## Saving the trained model
 # Depending on your training loop configuration, your PEFT model may have already been saved. If not, use save_pretrained to save your progress.
 logger.info('beginning save...')
-model.save_pretrained(mode_save_name)
+model.save_pretrained(final_save_name)
 logger.info('save complete.')
 
 ### Performing Inference with a PEFT Model
 ## Loading the model
 # Using the appropriate PEFT model class, load your trained model.
 logger.info('loading saved model...')
-final_model = AutoPeftModelForCausalLM.from_pretrained(mode_save_name)
+final_model = AutoPeftModelForCausalLM.from_pretrained(final_save_name)
 logger.info('...model loaded')
 logger.info(final_model)
 
