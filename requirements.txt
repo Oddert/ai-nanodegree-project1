@@ -1,0 +1,6 @@
+numpy
+loguru
+peft
+transformers
+jupyter
+notebook

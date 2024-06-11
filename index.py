@@ -12,7 +12,7 @@ import numpy as np
 from datasets import load_dataset
 from loguru import logger
 from peft import (
-	AutoPeftModelForCausalLM,
+	AutoPeftModelForSequenceClassification,
 	get_peft_model,
 	LoraConfig,
 	TaskType,
@@ -24,6 +24,7 @@ from transformers import (
 	Trainer,
 	TrainingArguments,
 )
+logger.info('packages imported')
 
 model_name = 'bert-base-cased'
 # model_name = 'distilbert-base-uncased'
@@ -41,6 +42,8 @@ initial_save_name = './data/initial'
 final_save_name = './data/final'
 select_size = 1000
 num_train_epochs = 10
+
+logger.info('settings created')
 
 dataset = load_dataset(dataset_name)
 
@@ -66,13 +69,8 @@ for label in [train_key, test_key]:
 
 # test_ds = test_ds.rename_column('Text', 'text')
 # test_ds = test_ds.rename_column('Label', 'label')
+logger.info('tokenised dataset loaded')
 
-lora_config = LoraConfig(
-	lora_alpha=1,
-	lora_dropout=0.1,
-	r=1,
-	task_type=TaskType.SEQ_CLS,
-)
 
 ### Loading and Evaluating a Foundation Model
 ## Loading the model
@@ -130,19 +128,27 @@ logger.info(initial_evaluation)
 ### Performing Parameter-Efficient Fine-Tuning
 ## Creating a PEFT config
 # Create a PEFT config with appropriate hyperparameters for your chosen model.
-peft_config = LoraConfig()
+# lora_config = LoraConfig()
+
+lora_config = LoraConfig(
+	lora_alpha=1,
+	lora_dropout=0.1,
+	r=1,
+	task_type=TaskType.SEQ_CLS,
+)
+
 logger.info('peft config created')
 
 ## Creating a PEFT model
 # Using the PEFT config and foundation model, create a PEFT model.
-model = get_peft_model(base_model, peft_config)
+model = get_peft_model(base_model, lora_config)
 model.print_trainable_parameters()
 logger.info('lora model instantiated')
 
 peft_training_args = TrainingArguments(
 	evaluation_strategy='epoch',
 	load_best_model_at_end=True,
-	num_train_epochs=10,
+	num_train_epochs=num_train_epochs,
 	output_dir=initial_save_name,
 	save_strategy='epoch',
 )
@@ -171,7 +177,7 @@ logger.info('save complete.')
 ## Loading the model
 # Using the appropriate PEFT model class, load your trained model.
 logger.info('loading saved model...')
-final_model = AutoPeftModelForCausalLM.from_pretrained(final_save_name)
+final_model = AutoPeftModelForSequenceClassification.from_pretrained(final_save_name)
 logger.info('...model loaded')
 logger.info(final_model)
 
